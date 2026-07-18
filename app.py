@@ -21,33 +21,48 @@ def save_status(status):
 def send_telegram_msg(text):
     requests.get(f"https://api.telegram.org/bot{TOKEN}/sendMessage?chat_id={CHAT_ID}&text={text}")
 
-st.title("OMEGA PRO: Panel Maestro (Versión Unificada)")
+st.title("OMEGA PRO: Panel Maestro Unificado")
 
 # --- Datos ---
 ticker = yf.Ticker("BTC-USD")
 df = ticker.history(period="10d", interval="1h")
 last_close = df['Close'].iloc[-1]
+high_prev = df['High'].iloc[-26:-1].max()
+low_prev = df['Low'].iloc[-26:-1].min()
 ema200 = df['Close'].ewm(span=200, adjust=False).mean().iloc[-1]
 
-# --- Lógica Estricta de EMA 200 (Como la tenías local) ---
-# Usamos una tolerancia para evitar disparos falsos si el precio toca la EMA
-cruce_alcista = last_close > (ema200 * 1.001) 
+# --- Lógica de Motores ---
+# 1. Motor EMA 200 (Estricto)
+cruce_alcista = last_close > (ema200 * 1.001)
 cruce_bajista = last_close < (ema200 * 0.999)
+status_ema = "ALCISTA" if cruce_alcista else "BAJISTA" if cruce_bajista else "ESPERA"
 
-status_ema = "ESPERA"
-if cruce_alcista: status_ema = "ALCISTA"
-elif cruce_bajista: status_ema = "BAJISTA"
+# 2. Motor BOS (Dinámico)
+status_bos = "COMPRA" if last_close > high_prev else "VENTA" if last_close < low_prev else "NEUTRAL"
 
-# --- Visualización ---
-st.subheader("Estado del Motor EMA 200")
-if status_ema == "ALCISTA": st.success("ALCISTA (Precio > EMA 200)")
-elif status_ema == "BAJISTA": st.error("BAJISTA (Precio < EMA 200)")
-else: st.warning("ESPERA (En zona de EMA 200)")
+# --- Visualización (Semáforos) ---
+col1, col2 = st.columns(2)
 
-# --- Notificación ---
+with col1:
+    st.subheader("Motor BOS")
+    if status_bos == "COMPRA": st.success("COMPRA")
+    elif status_bos == "VENTA": st.error("VENTA")
+    else: st.warning("NEUTRAL")
+
+with col2:
+    st.subheader("Motor EMA 200")
+    if status_ema == "ALCISTA": st.success("ALCISTA")
+    elif status_ema == "BAJISTA": st.error("BAJISTA")
+    else: st.warning("ESPERA")
+
+# --- Estado del Sistema ---
+st.divider()
+st.write(f"**Precio Actual:** {last_close:.2f} | **EMA 200:** {ema200:.2f}")
+
+# Notificación automática si el sistema cambia
+current_total_status = f"{status_bos}_{status_ema}"
 last_saved = get_saved_status()
-if status_ema != last_saved and status_ema != "ESPERA":
-    send_telegram_msg(f"🚀 OMEGA PRO: El estado ha cambiado a {status_ema}")
-    save_status(status_ema)
 
-st.write(f"Precio Actual: {last_close:.2f} | EMA 200: {ema200:.2f}")
+if current_total_status != last_saved:
+    send_telegram_msg(f"🚀 OMEGA PRO:\nBOS: {status_bos}\nEMA 200: {status_ema}")
+    save_status(current_total_status)
