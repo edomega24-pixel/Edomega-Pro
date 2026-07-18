@@ -1,19 +1,18 @@
 import streamlit as st
 import yfinance as yf
 import requests
-import datetime
 import os
 
+# --- Configuración ---
 TOKEN = "8932397018:AAE1etAoCTjdmCP1uLdt01x1DFGaoaT11PE"
 CHAT_ID = "7450065212"
 STATUS_FILE = "status.txt"
 
-# --- Funciones de Gestión ---
 def get_saved_status():
     if os.path.exists(STATUS_FILE):
         with open(STATUS_FILE, "r") as f:
             return f.read()
-    return "NEUTRAL"
+    return "ESPERA"
 
 def save_status(status):
     with open(STATUS_FILE, "w") as f:
@@ -22,55 +21,33 @@ def save_status(status):
 def send_telegram_msg(text):
     requests.get(f"https://api.telegram.org/bot{TOKEN}/sendMessage?chat_id={CHAT_ID}&text={text}")
 
-st.title("OMEGA PRO: Panel de Sinergia")
+st.title("OMEGA PRO: Panel Maestro (Versión Unificada)")
 
 # --- Datos ---
 ticker = yf.Ticker("BTC-USD")
 df = ticker.history(period="10d", interval="1h")
 last_close = df['Close'].iloc[-1]
-high_prev = df['High'].iloc[-26:-1].max()
-low_prev = df['Low'].iloc[-26:-1].min()
 ema200 = df['Close'].ewm(span=200, adjust=False).mean().iloc[-1]
 
-# --- Lógica de Señales ---
-# 1. Estado BOS
-bos_status = "NEUTRAL"
-if last_close > high_prev: bos_status = "COMPRA"
-elif last_close < low_prev: bos_status = "VENTA"
+# --- Lógica Estricta de EMA 200 (Como la tenías local) ---
+# Usamos una tolerancia para evitar disparos falsos si el precio toca la EMA
+cruce_alcista = last_close > (ema200 * 1.001) 
+cruce_bajista = last_close < (ema200 * 0.999)
 
-# 2. Estado EMA 200
-ema_status = "ALCISTA" if last_close > ema200 else "BAJISTA"
+status_ema = "ESPERA"
+if cruce_alcista: status_ema = "ALCISTA"
+elif cruce_bajista: status_ema = "BAJISTA"
 
-# --- Interfaz Visual (Semáforo) ---
-col1, col2 = st.columns(2)
+# --- Visualización ---
+st.subheader("Estado del Motor EMA 200")
+if status_ema == "ALCISTA": st.success("ALCISTA (Precio > EMA 200)")
+elif status_ema == "BAJISTA": st.error("BAJISTA (Precio < EMA 200)")
+else: st.warning("ESPERA (En zona de EMA 200)")
 
-with col1:
-    st.subheader("BOS Dinámico")
-    if bos_status == "COMPRA": st.success("COMPRA (BOS)")
-    elif bos_status == "VENTA": st.error("VENTA (BOS)")
-    else: st.warning("NEUTRAL (BOS)")
-
-with col2:
-    st.subheader("Tendencia EMA 200")
-    if ema_status == "ALCISTA": st.success("ALCISTA (EMA 200)")
-    else: st.error("BAJISTA (EMA 200)")
-
-# --- Lógica de Sinergia (Púrpura) ---
-st.divider()
-if (bos_status == "COMPRA" and ema_status == "ALCISTA") or (bos_status == "VENTA" and ema_status == "BAJISTA"):
-    st.markdown("""
-        <div style="background-color: purple; color: white; padding: 20px; border-radius: 10px; text-align: center; font-size: 20px;">
-        🔥 SINERGIA TOTAL DETECTADA (BOS + EMA ALINEADOS) 🔥
-        </div>
-    """, unsafe_allow_html=True)
-    
-    # Notificación especial si hubo cambio
-    last_saved = get_saved_status()
-    if last_saved != "SINERGIA":
-        send_telegram_msg("🟣 OMEGA PRO: ¡ALINEACIÓN TOTAL DETECTADA! EMA 200 y BOS coinciden.")
-        save_status("SINERGIA")
-else:
-    # Si no hay sinergia, guardamos el estado normal
-    save_status(bos_status)
+# --- Notificación ---
+last_saved = get_saved_status()
+if status_ema != last_saved and status_ema != "ESPERA":
+    send_telegram_msg(f"🚀 OMEGA PRO: El estado ha cambiado a {status_ema}")
+    save_status(status_ema)
 
 st.write(f"Precio Actual: {last_close:.2f} | EMA 200: {ema200:.2f}")
