@@ -1,23 +1,23 @@
 import streamlit as st
-import pandas as pd
-import time
-import requests
 import ccxt
+import pandas as pd
 
-# --- CONFIGURACIÓN ---
-TOKEN = "8932397018:AAE1etAoCTjdmCP1uLdt01x1DFGaoaT11PE"
-CHAT_ID = "7450065212"
+# Configuración de arquitectura
+st.set_page_config(page_title="OMEGA PRO - ENGINE", layout="wide")
 
-# Inicialización
-exchange = ccxt.binance({'enableRateLimit': True, 'timeout': 5000})
+# Inicialización de intercambio para análisis de BTC
+exchange = ccxt.binance({'enableRateLimit': True})
 
-st.set_page_config(page_title="EDOMEGA PRO - ESTRUCTURA", layout="centered")
+def fetch_data(symbol, timeframe='1h', limit=100):
+    ohlcv = exchange.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
+    df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+    df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+    return df
 
-st.markdown("""
-    <style>
-    .stApp {background-color: #0e1117;}
-    </style>
-""", unsafe_allow_html=True)
+st.title("OMEGA PRO: Motor de Análisis")
+st.subheader("Monitoreando BTC/USDT (Estructura Base)")
 
-st.title("EDOMEGA PRO: Bot Conectado")
-st.write("El bot está funcionando correctamente.")
+# Extracción de datos para BTC
+data = fetch_data('BTC/USDT')
+st.line_chart(data.set_index('timestamp')['close'])
+st.write("Precio actual de BTC:", data['close'].iloc[-1])
