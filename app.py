@@ -7,25 +7,29 @@ import requests
 TOKEN = "8932397018:AAE1etAoCTjdmCP1uLdt01x1DFGaoaT11PE"
 CHAT_ID = "7450065212"
 
+# Configuración básica
+st.set_page_config(page_title="OMEGA PRO", layout="centered")
+
 def send_telegram_msg(text):
-    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage?chat_id={CHAT_ID}&text={text}"
-    requests.get(url)
+    try:
+        url = f"https://api.telegram.org/bot{TOKEN}/sendMessage?chat_id={CHAT_ID}&text={text}"
+        requests.get(url, timeout=5)
+    except Exception as e:
+        st.error(f"Error enviando mensaje: {e}")
 
-# Configuración de arquitectura
-st.set_page_config(page_title="OMEGA PRO - ENGINE", layout="wide")
-exchange = ccxt.binance({'enableRateLimit': True})
+st.title("OMEGA PRO: Panel de Control")
 
-def fetch_data(symbol, timeframe='1h', limit=100):
-    ohlcv = exchange.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
+try:
+    exchange = ccxt.binance({'enableRateLimit': True})
+    ohlcv = exchange.fetch_ohlcv('BTC/USDT', timeframe='1h', limit=50)
     df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-    df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
-    return df
+    precio_actual = df['close'].iloc[-1]
+    
+    st.success(f"Conexión exitosa. Precio actual: {precio_actual}")
+    
+    if st.button("Enviar Alerta de Prueba"):
+        send_telegram_msg(f"Prueba de Omega Pro. Precio BTC: {precio_actual}")
+        st.write("Alerta enviada.")
 
-st.title("OMEGA PRO: Motor con Notificaciones")
-data = fetch_data('BTC/USDT')
-precio_actual = data['close'].iloc[-1]
-st.write(f"Precio actual de BTC: {precio_actual}")
-
-if st.button("Enviar Alerta de Prueba"):
-    send_telegram_msg(f"Omega Pro: Prueba de sistema. Precio actual BTC: {precio_actual}")
-    st.success("Mensaje enviado a Telegram")
+except Exception as e:
+    st.error(f"Error conectando con el mercado: {e}")
