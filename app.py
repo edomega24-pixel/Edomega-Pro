@@ -1,35 +1,30 @@
 import streamlit as st
-import ccxt
-import pandas as pd
+import yfinance as yf
 import requests
 
 # --- CONFIGURACIÓN ---
 TOKEN = "8932397018:AAE1etAoCTjdmCP1uLdt01x1DFGaoaT11PE"
 CHAT_ID = "7450065212"
 
-# Configuración básica
 st.set_page_config(page_title="OMEGA PRO", layout="centered")
 
 def send_telegram_msg(text):
-    try:
-        url = f"https://api.telegram.org/bot{TOKEN}/sendMessage?chat_id={CHAT_ID}&text={text}"
-        requests.get(url, timeout=5)
-    except Exception as e:
-        st.error(f"Error enviando mensaje: {e}")
+    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage?chat_id={CHAT_ID}&text={text}"
+    requests.get(url)
 
 st.title("OMEGA PRO: Panel de Control")
 
 try:
-    exchange = ccxt.binance({'enableRateLimit': True})
-    ohlcv = exchange.fetch_ohlcv('BTC/USDT', timeframe='1h', limit=50)
-    df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-    precio_actual = df['close'].iloc[-1]
+    # Usamos Yahoo Finance para evitar bloqueos
+    ticker = yf.Ticker("BTC-USD")
+    data = ticker.history(period="1d", interval="1h")
+    precio_actual = data['Close'].iloc[-1]
     
-    st.success(f"Conexión exitosa. Precio actual: {precio_actual}")
+    st.success(f"Conexión estable. Precio actual BTC: ${precio_actual:.2f}")
     
     if st.button("Enviar Alerta de Prueba"):
-        send_telegram_msg(f"Prueba de Omega Pro. Precio BTC: {precio_actual}")
-        st.write("Alerta enviada.")
+        send_telegram_msg(f"Omega Pro activo. Precio BTC: ${precio_actual:.2f}")
+        st.write("Alerta enviada correctamente.")
 
 except Exception as e:
     st.error(f"Error conectando con el mercado: {e}")
