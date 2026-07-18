@@ -41,7 +41,7 @@ def get_data():
         return None
 
 # --- PRUEBA DE CONEXIÓN ---
-enviar_alerta("🚀 EDOMEGA PRO: Prueba de conexión exitosa iniciada.")
+enviar_alerta("🚀 EDOMEGA PRO: Bot iniciado en la nube.")
 
 placeholder = st.empty()
 
@@ -53,10 +53,8 @@ while True:
         volumen_actual = float(df['volume'].iloc[-1])
         volumen_promedio = df['volume'].rolling(20).mean().iloc[-1]
         
-        # Filtro de Tendencia: EMA 200
         ema200 = df['close'].ewm(span=200, adjust=False).mean().iloc[-1]
         
-        # Indicadores de entrada
         sma = df['close'].rolling(20).mean().iloc[-1]
         std = df['close'].rolling(20).std().iloc[-1]
         bbl = sma - (2.5 * std)
@@ -67,7 +65,6 @@ while True:
         loss = (-delta.clip(upper=0)).rolling(7).mean()
         rsi_val = 100 - (100 / (1 + (gain / loss))).iloc[-1]
         
-        # --- LÓGICA DE ALTA PRECISIÓN ---
         confirmacion_volumen = volumen_actual > (volumen_promedio * 1.2)
         tendencia_alcista = cierre > ema200
         tendencia_bajista = cierre < ema200
