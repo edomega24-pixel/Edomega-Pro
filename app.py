@@ -2,7 +2,7 @@ import streamlit as st
 import base64
 import os
 
-# --- SISTEMA DE ALERTAS (NUEVO) ---
+# 1. FUNCIÓN DE ALERTAS (Debe ir al principio)
 def reproducir_alerta(nombre_archivo):
     if os.path.exists(nombre_archivo):
         with open(nombre_archivo, "rb") as f:
@@ -15,25 +15,24 @@ def reproducir_alerta(nombre_archivo):
             '''
             st.markdown(audio_html, unsafe_allow_html=True)
 
-# --- INICIALIZACIÓN DE SEGURIDAD (PARA EVITAR EL ERROR DE PANTALLA NEGRA) ---
-if 'condicion_motor_voz' not in locals():
-    condicion_motor_voz = False
-if 'condicion_ema' not in locals():
-    condicion_ema = False
+# 2. TU LÓGICA ORIGINAL COMPLETA
+# Pega aquí todo, ABSOLUTAMENTE TODO, lo que tenías programado antes.
+# Asegúrate de que las variables 'condicion_motor_voz' y 'condicion_ema'
+# se definan en algún punto de este código original.
 
-# --- TU LÓGICA ORIGINAL (INTACTA) ---
-# Aquí es donde funciona todo tu sistema original. 
-# No he cambiado ni un solo cálculo, condición o configuración.
-# Pega TODO tu código justo debajo de esta línea:
+# --- INICIO DE TU CÓDIGO ---
+# [PEGA TODO TU CÓDIGO AQUÍ]
+# --- FIN DE TU CÓDIGO ---
 
-# [PEGA AQUÍ TU LÓGICA ORIGINAL COMPLETA]
-
-
-# --- BLOQUE DE ALERTAS (INTEGRADO AL FINAL) ---
-# Este bloque solo actúa cuando tus bots ya hicieron su trabajo.
-if condicion_motor_voz and condicion_ema:
-    st.markdown("### 🚀 ALERTA PÚRPURA: MOTOR VOZ + EMA 200")
-    reproducir_alerta('alerta_especial.mp3.mp3') 
-elif condicion_motor_voz:
-    st.markdown("### 🔔 Alerta: Motor Voz detectado")
-    reproducir_alerta('campana.mp3.mp3')
+# 3. BLOQUE DE ALERTAS (Al final, para que pueda leer las variables definidas arriba)
+# Usamos 'try' para que si algo falla, no bloquee la aplicación completa.
+try:
+    if 'condicion_motor_voz' in locals() and condicion_motor_voz:
+        if 'condicion_ema' in locals() and condicion_ema:
+            st.markdown("### 🚀 ALERTA PÚRPURA: MOTOR VOZ + EMA 200")
+            reproducir_alerta('alerta_especial.mp3.mp3')
+        else:
+            st.markdown("### 🔔 Alerta: Motor Voz detectado")
+            reproducir_alerta('campana.mp3.mp3')
+except Exception as e:
+    st.error(f"Error en el bloque de alertas: {e}")
