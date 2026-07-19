@@ -14,28 +14,21 @@ def reproducir_alerta(nombre_archivo):
                 </audio>
             '''
             st.markdown(audio_html, unsafe_allow_html=True)
-    else:
-        st.warning(f"Archivo de audio no encontrado: {nombre_archivo}")
 
-# --- 2. AQUÍ EMPIEZA TU LÓGICA ORIGINAL ---
-# COPIA Y PEGA AQUÍ TODO TU CÓDIGO DONDE CALCULAS TUS VARIABLES
-# Asegúrate de que al final de tu lógica queden definidas:
-# condicion_motor_voz = ...
-# condicion_ema = ...
-# -------------------------------------------
+# --- 2. INICIALIZACIÓN DE VARIABLES ---
+# Definimos las variables antes de usarlas para que no den error
+condicion_motor_voz = False
+condicion_ema = False
 
-### AQUÍ PEGA TU LÓGICA DE CÁLCULO DE SEÑALES ###
+# --- 3. TU LÓGICA ORIGINAL ---
+# (Aquí es donde debes tener el resto de tu código que calcula las condiciones)
+# ... todo tu código original va aquí ...
 
 
-# --- 3. BLOQUE DE ALERTAS (Debe ir al final para detectar las variables) ---
-# Usamos 'try' para evitar errores si las variables no se definieron por alguna razón
-try:
-    if 'condicion_motor_voz' in locals() and 'condicion_ema' in locals():
-        if condicion_motor_voz and condicion_ema:
-            st.markdown("### 🚀 ALERTA PÚRPURA: MOTOR VOZ + EMA 200")
-            reproducir_alerta('alerta_especial.mp3')
-        elif condicion_motor_voz:
-            st.markdown("### 🔔 Alerta: Motor Voz detectado")
-            reproducir_alerta('campana.mp3')
-except Exception as e:
-    st.error(f"Error en la lógica de alertas: {e}")
+# --- 4. BLOQUE DE ALERTAS (Ya no dará error porque las variables ya existen) ---
+if condicion_motor_voz and condicion_ema:
+    st.markdown("### 🚀 ALERTA PÚRPURA: MOTOR VOZ + EMA 200")
+    reproducir_alerta('alerta_especial.mp3')
+elif condicion_motor_voz:
+    st.markdown("### 🔔 Alerta: Motor Voz detectado")
+    reproducir_alerta('campana.mp3')
