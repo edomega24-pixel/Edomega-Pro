@@ -21,17 +21,18 @@ if 'condicion_motor_voz' not in locals():
 if 'condicion_ema' not in locals():
     condicion_ema = False
 
-# 3. AQUÍ VA TODO TU CÓDIGO ORIGINAL
-# (Asegúrate de que este código mantenga las variables condicion_motor_voz 
-# y condicion_ema actualizadas según tu lógica de mercado)
+# 3. AQUÍ VA TU LÓGICA ORIGINAL
+# Asegúrate de pegar aquí abajo todo el código que calcula tus señales
+# --- COMIENZA TU LÓGICA ---
 
-# [PEGA TU LÓGICA DE CÁLCULO AQUÍ]
+# [PEGA TU CÓDIGO ORIGINAL AQUÍ]
 
+# --- TERMINA TU LÓGICA ---
 
-# 4. BLOQUE DE ALERTAS SONORAS (Al final)
+# 4. BLOQUE DE ALERTAS (Configurado con tus nombres de archivo actuales)
 if condicion_motor_voz and condicion_ema:
     st.markdown("### 🚀 ALERTA PÚRPURA: MOTOR VOZ + EMA 200")
-    reproducir_alerta('alerta_especial.mp3')
+    reproducir_alerta('alerta_especial.mp3.mp3') 
 elif condicion_motor_voz:
     st.markdown("### 🔔 Alerta: Motor Voz detectado")
-    reproducir_alerta('campana.mp3')
+    reproducir_alerta('campana.mp3.mp3')
