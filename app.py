@@ -15,11 +15,11 @@ def reproducir_alerta(nombre_archivo):
             '''
             st.markdown(audio_html, unsafe_allow_html=True)
 
-# 2. TU LÓGICA ORIGINAL (MANTENIDA TOTALMENTE)
-# [PEGA AQUÍ TODO TU CÓDIGO ORIGINAL]
+# 2. TU LÓGICA ORIGINAL (AQUÍ DEBE APARECER TODO)
+# [PEGA AQUÍ TU LÓGICA COMPLETA DE PRECIOS, GRÁFICOS Y VARIABLES]
 
-# 3. BLOQUE DE ALERTAS PROTEGIDO (NADA DE ERRORES)
-# Usamos 'globals().get' para que no falle si la variable falta
+# 3. BLOQUE DE ALERTAS (PROTEGIDO)
+# Solo verificamos variables si ya existen para no romper el script
 c_voz = globals().get('condicion_motor_voz', False)
 c_ema = globals().get('condicion_ema', False)
 
