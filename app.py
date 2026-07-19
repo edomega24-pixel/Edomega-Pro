@@ -11,7 +11,7 @@ CHAT_ID = "7450065212"
 STATUS_FILE = "status.txt"
 HISTORY_FILE = "history.csv"
 
-# --- Función de Alertas (INTEGRADA) ---
+# --- Función de Alertas ---
 def reproducir_alerta(nombre_archivo):
     if os.path.exists(nombre_archivo):
         with open(nombre_archivo, "rb") as f:
@@ -33,12 +33,12 @@ def get_market_data():
     try:
         ticker = yf.Ticker("BTC-USD")
         df = ticker.history(period="1d", interval="1m")
-        if df.empty:
-            return None
+        if df.empty: return None
         return df
     except Exception as e:
-        st.error("Error conectando con el mercado. Reintentando...")
+        st.error("Error conectando con el mercado.")
         return None
+
 def update_history(bos, ema):
     new_entry = pd.DataFrame({'BOS': [bos], 'EMA': [ema]})
     if os.path.exists(HISTORY_FILE):
@@ -54,43 +54,52 @@ st.set_page_config(page_title="OMEGA PRO", layout="wide")
 st.title("🚀 OMEGA PRO: Panel Maestro")
 
 df = get_market_data()
-last_close = df['Close'].iloc[-1]
-ema200 = df['Close'].ewm(span=200, adjust=False).mean().iloc[-1]
-high_prev = df['High'].iloc[-26:-1].max()
-low_prev = df['Low'].iloc[-26:-1].min()
 
-status_ema = "ALCISTA" if last_close > (ema200 * 1.001) else "BAJISTA" if last_close < (ema200 * 0.999) else "ESPERA"
-status_bos = "COMPRA" if last_close > high_prev else "VENTA" if last_close < low_prev else "NEUTRAL"
+if df is not None:
+    last_close = df['Close'].iloc[-1]
+    ema200 = df['Close'].ewm(span=200, adjust=False).mean().iloc[-1]
+    high_prev = df['High'].iloc[-26:-1].max()
+    low_prev = df['Low'].iloc[-26:-1].min()
+    
+    # Filtro de Volumen
+    vol_avg = df['Volume'].rolling(window=20).mean().iloc[-1]
+    last_vol = df['Volume'].iloc[-1]
 
-# --- Visualización con Colores ---
-col1, col2 = st.columns(2)
+    status_ema = "ALCISTA" if last_close > (ema200 * 1.001) else "BAJISTA" if last_close < (ema200 * 0.999) else "ESPERA"
+    status_bos = "COMPRA" if last_close > high_prev else "VENTA" if last_close < low_prev else "NEUTRAL"
 
-# Colores para BOS
-if status_bos == "COMPRA": col1.success(f"Motor BOS: {status_bos}")
-elif status_bos == "VENTA": col1.error(f"Motor BOS: {status_bos}")
-else: col1.warning(f"Motor BOS: {status_bos}")
+    # --- Visualización con Colores ---
+    col1, col2 = st.columns(2)
+    if status_bos == "COMPRA": col1.success(f"Motor BOS: {status_bos}")
+    elif status_bos == "VENTA": col1.error(f"Motor BOS: {status_bos}")
+    else: col1.warning(f"Motor BOS: {status_bos}")
 
-# Colores para EMA
-if status_ema == "ALCISTA": col2.success(f"Motor EMA 200: {status_ema}")
-elif status_ema == "BAJISTA": col2.error(f"Motor EMA 200: {status_ema}")
-else: col2.warning(f"Motor EMA 200: {status_ema}")
+    if status_ema == "ALCISTA": col2.success(f"Motor EMA 200: {status_ema}")
+    elif status_ema == "BAJISTA": col2.error(f"Motor EMA 200: {status_ema}")
+    else: col2.warning(f"Motor EMA 200: {status_ema}")
 
-# --- Lógica de Alertas (NUEVA) ---
-if (status_bos == "COMPRA" and status_ema == "ALCISTA") or (status_bos == "VENTA" and status_ema == "BAJISTA"):
-    st.markdown("### 🔥 SINERGIA TOTAL ALINEADA 🔥")
-    reproducir_alerta('alerta_especial.mp3.mp3')
-elif status_bos != "NEUTRAL":
-    reproducir_alerta('campana.mp3.mp3')
+    # --- Historial ---
+    st.subheader("📜 Historial de Movimientos")
+    historial = update_history(status_bos, status_ema)
+    st.table(historial)
 
-# --- Historial ---
-st.subheader("📜 Historial de Movimientos")
-historial = update_history(status_bos, status_ema)
-st.table(historial)
+    # --- Notificación y Sinergia ---
+    if (status_bos == "COMPRA" and status_ema == "ALCISTA") or (status_bos == "VENTA" and status_ema == "BAJISTA"):
+        if last_vol > vol_avg:
+            st.markdown("### 🔥 SINERGIA TOTAL CON VOLUMEN 🔥")
+            reproducir_alerta('alerta_especial.mp3.mp3')
+        else:
+            st.warning("⚠️ Sinergia detectada pero bajo volumen")
+            reproducir_alerta('campana.mp3.mp3')
+    elif status_bos != "NEUTRAL":
+        reproducir_alerta('campana.mp3.mp3')
 
-# --- Notificación ---
-current_status = f"{status_bos}_{status_ema}"
-if not os.path.exists(STATUS_FILE) or open(STATUS_FILE).read() != current_status:
-    requests.get(f"https://api.telegram.org/bot{TOKEN}/sendMessage?chat_id={CHAT_ID}&text=Omega Pro cambio a: {current_status}")
-    with open(STATUS_FILE, "w") as f: f.write(current_status)
+    # --- Telegram ---
+    current_status = f"{status_bos}_{status_ema}"
+    if not os.path.exists(STATUS_FILE) or open(STATUS_FILE).read() != current_status:
+        requests.get(f"https://api.telegram.org/bot{TOKEN}/sendMessage?chat_id={CHAT_ID}&text=Omega Pro: {current_status}")
+        with open(STATUS_FILE, "w") as f: f.write(current_status)
 
-st.write(f"Precio Actual: {last_close:.2f} | EMA 200: {ema200:.2f}")
+    st.write(f"Precio Actual: {last_close:.2f} | EMA 200: {ema200:.2f} | Volumen: {last_vol:.0f} (Promedio: {vol_avg:.0f})")
+else:
+    st.warning("Esperando datos del mercado...")
