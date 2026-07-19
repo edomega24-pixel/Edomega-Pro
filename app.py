@@ -2,7 +2,7 @@ import streamlit as st
 import base64
 import os
 
-# 1. FUNCIÓN DE ALERTAS
+# --- SISTEMA DE ALERTAS (NUEVO) ---
 def reproducir_alerta(nombre_archivo):
     if os.path.exists(nombre_archivo):
         with open(nombre_archivo, "rb") as f:
@@ -15,21 +15,22 @@ def reproducir_alerta(nombre_archivo):
             '''
             st.markdown(audio_html, unsafe_allow_html=True)
 
-# 2. INICIALIZACIÓN SEGURA (Evita el NameError)
+# --- INICIALIZACIÓN DE SEGURIDAD (PARA EVITAR EL ERROR DE PANTALLA NEGRA) ---
 if 'condicion_motor_voz' not in locals():
     condicion_motor_voz = False
 if 'condicion_ema' not in locals():
     condicion_ema = False
 
-# 3. AQUÍ VA TU LÓGICA ORIGINAL
-# Asegúrate de pegar aquí abajo todo el código que calcula tus señales
-# --- COMIENZA TU LÓGICA ---
+# --- TU LÓGICA ORIGINAL (INTACTA) ---
+# Aquí es donde funciona todo tu sistema original. 
+# No he cambiado ni un solo cálculo, condición o configuración.
+# Pega TODO tu código justo debajo de esta línea:
 
-# [PEGA TU CÓDIGO ORIGINAL AQUÍ]
+# [PEGA AQUÍ TU LÓGICA ORIGINAL COMPLETA]
 
-# --- TERMINA TU LÓGICA ---
 
-# 4. BLOQUE DE ALERTAS (Configurado con tus nombres de archivo actuales)
+# --- BLOQUE DE ALERTAS (INTEGRADO AL FINAL) ---
+# Este bloque solo actúa cuando tus bots ya hicieron su trabajo.
 if condicion_motor_voz and condicion_ema:
     st.markdown("### 🚀 ALERTA PÚRPURA: MOTOR VOZ + EMA 200")
     reproducir_alerta('alerta_especial.mp3.mp3') 
