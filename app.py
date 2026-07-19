@@ -28,7 +28,7 @@ def reproducir_alerta(nombre_archivo):
 st.markdown('<meta http-equiv="refresh" content="30">', unsafe_allow_html=True)
 
 # --- Funciones ---
-    @st.cache_data(ttl=20)
+@st.cache_data(ttl=20)
 def get_market_data():
     try:
         ticker = yf.Ticker("BTC-USD")
@@ -39,7 +39,6 @@ def get_market_data():
     except Exception as e:
         st.error("Error conectando con el mercado. Reintentando...")
         return None
-
 def update_history(bos, ema):
     new_entry = pd.DataFrame({'BOS': [bos], 'EMA': [ema]})
     if os.path.exists(HISTORY_FILE):
