@@ -101,7 +101,7 @@ if df is not None and len(df) > 20:
     
     # Cálculo del ATR dinámico
     atr_val = calcular_atr(df)
-    atr_medio = df['Close'].iloc[-1] * 0.0005 # Umbral dinámico base de referencia
+    atr_medio = df['Close'].iloc[-1] * 0.0005 
 
     status_ema = "ALCISTA" if last_close > (ema200 * 1.001) else "BAJISTA" if last_close < (ema200 * 0.999) else "ESPERA"
     status_bos = "COMPRA" if last_close > high_prev else "VENTA" if last_close < low_prev else "NEUTRAL"
@@ -123,18 +123,28 @@ if df is not None and len(df) > 20:
     historial = update_history(status_bos, status_ema)
     st.table(historial)
 
-    # --- Notificación y Sinergia con Filtro ATR ---
+    # --- Notificación y Sinergia (Conservando TODAS las alertas y funciones) ---
     es_sinergia = (status_bos == "COMPRA" and status_ema == "ALCISTA" and trend_5m == "ALCISTA") or \
                   (status_bos == "VENTA" and status_ema == "BAJISTA" and trend_5m == "BAJISTA")
     
+    # 1. Si se cumple la Sinergia Pro completa con Volumen y ATR: Alerta Especial + Púrpura + Registro
     if es_sinergia and last_vol > vol_avg and atr_val > atr_medio:
-        st.markdown("### 💎 SINERGIA PRO: Confirmada Multitemporal + Volumen + ATR Óptimo")
+        st.markdown(
+            """
+            <div style="background-color: #6a0dad; padding: 15px; border-radius: 10px; text-align: center;">
+                <h2 style="color: white; margin: 0;">💎 SINERGIA PRO: ¡CONFIRMADA! (BOS + EMA + 5m + ATR)</h2>
+            </div>
+            """, 
+            unsafe_allow_html=True
+        )
         registrar_sinergia(last_close, trend_5m, last_vol, vol_avg, atr_val)
         reproducir_alerta('alerta_especial.mp3.mp3')
+    
+    # 2. Si hay un movimiento BOS activo pero no es Sinergia Pro perfecta: Alerta de campana estándar
     elif status_bos != "NEUTRAL":
         reproducir_alerta('campana.mp3.mp3')
 
-    # --- Telegram (Con control de estado restaurado) ---
+    # --- Telegram (Con control de estado intacto) ---
     current_status = f"{status_bos}_{status_ema}_{trend_5m}"
     if not os.path.exists(STATUS_FILE) or open(STATUS_FILE).read() != current_status:
         requests.get(f"https://api.telegram.org/bot{TOKEN}/sendMessage?chat_id={CHAT_ID}&text=Omega Pro Update: {current_status}")
