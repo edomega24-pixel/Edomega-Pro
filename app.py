@@ -1,35 +1,104 @@
 import streamlit as st
-import ccxt
-import pandas as pd
+import yfinance as yf
 import requests
+import os
+import pandas as pd
+import base64
 
-# --- CONFIGURACIÓN ---
+# --- Configuración ---
 TOKEN = "8932397018:AAE1etAoCTjdmCP1uLdt01x1DFGaoaT11PE"
 CHAT_ID = "7450065212"
+STATUS_FILE = "status.txt"
+HISTORY_FILE = "history.csv"
 
-# Configuración básica
-st.set_page_config(page_title="OMEGA PRO", layout="centered")
+# --- Funciones de Alerta ---
+def reproducir_alerta(nombre_archivo):
+    if os.path.exists(nombre_archivo):
+        with open(nombre_archivo, "rb") as f:
+            data = f.read()
+            b64 = base64.b64encode(data).decode()
+            audio_html = f'''<audio autoplay="true"><source src="data:audio/mp3;base64,{b64}" type="audio/mp3"></audio>'''
+            st.markdown(audio_html, unsafe_allow_html=True)
 
-def send_telegram_msg(text):
+# --- Funciones de Datos ---
+@st.cache_data(ttl=60)
+def get_trend_5m():
     try:
-        url = f"https://api.telegram.org/bot{TOKEN}/sendMessage?chat_id={CHAT_ID}&text={text}"
-        requests.get(url, timeout=5)
-    except Exception as e:
-        st.error(f"Error enviando mensaje: {e}")
+        df = yf.Ticker("BTC-USD").history(period="1d", interval="5m")
+        if df.empty: return "NEUTRAL"
+        ema200_5m = df['Close'].ewm(span=200, adjust=False).mean().iloc[-1]
+        last_close_5m = df['Close'].iloc[-1]
+        return "ALCISTA" if last_close_5m > ema200_5m else "BAJISTA"
+    except: return "NEUTRAL"
 
-st.title("OMEGA PRO: Panel de Control")
+@st.cache_data(ttl=20)
+def get_market_data():
+    try:
+        df = yf.Ticker("BTC-USD").history(period="1d", interval="1m")
+        if df.empty: return None
+        return df
+    except: return None
 
-try:
-    exchange = ccxt.binance({'enableRateLimit': True})
-    ohlcv = exchange.fetch_ohlcv('BTC/USDT', timeframe='1h', limit=50)
-    df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-    precio_actual = df['close'].iloc[-1]
+def update_history(bos, ema):
+    new_entry = pd.DataFrame({'BOS': [bos], 'EMA': [ema]})
+    if os.path.exists(HISTORY_FILE):
+        history = pd.read_csv(HISTORY_FILE)
+        history = pd.concat([history, new_entry]).tail(10)
+    else:
+        history = new_entry
+    history.to_csv(HISTORY_FILE, index=False)
+    return history
+
+# --- Interfaz ---
+st.set_page_config(page_title="OMEGA PRO", layout="wide")
+st.title("🚀 OMEGA PRO: Panel Maestro Multitemporal")
+
+df = get_market_data()
+trend_5m = get_trend_5m()
+
+if df is not None:
+    last_close = df['Close'].iloc[-1]
+    ema200 = df['Close'].ewm(span=200, adjust=False).mean().iloc[-1]
+    high_prev = df['High'].iloc[-26:-1].max()
+    low_prev = df['Low'].iloc[-26:-1].min()
+    vol_avg = df['Volume'].rolling(window=20).mean().iloc[-1]
+    last_vol = df['Volume'].iloc[-1]
+
+    status_ema = "ALCISTA" if last_close > (ema200 * 1.001) else "BAJISTA" if last_close < (ema200 * 0.999) else "ESPERA"
+    status_bos = "COMPRA" if last_close > high_prev else "VENTA" if last_close < low_prev else "NEUTRAL"
+
+    # --- Visualización ---
+    col1, col2, col3 = st.columns(3)
+    if status_bos == "COMPRA": col1.success(f"BOS: {status_bos}")
+    elif status_bos == "VENTA": col1.error(f"BOS: {status_bos}")
+    else: col1.warning(f"BOS: {status_bos}")
+
+    if status_ema == "ALCISTA": col2.success(f"EMA 200: {status_ema}")
+    elif status_ema == "BAJISTA": col2.error(f"EMA 200: {status_ema}")
+    else: col2.warning(f"EMA 200: {status_ema}")
     
-    st.success(f"Conexión exitosa. Precio actual: {precio_actual}")
-    
-    if st.button("Enviar Alerta de Prueba"):
-        send_telegram_msg(f"Prueba de Omega Pro. Precio BTC: {precio_actual}")
-        st.write("Alerta enviada.")
+    col3.info(f"Tendencia 5m: {trend_5m}")
 
-except Exception as e:
-    st.error(f"Error conectando con el mercado: {e}")
+    # --- Historial ---
+    historial = update_history(status_bos, status_ema)
+    st.table(historial)
+
+    # --- Notificación y Sinergia (Lógica Multitemporal) ---
+    es_sinergia = (status_bos == "COMPRA" and status_ema == "ALCISTA" and trend_5m == "ALCISTA") or \
+                  (status_bos == "VENTA" and status_ema == "BAJISTA" and trend_5m == "BAJISTA")
+    
+    if es_sinergia and last_vol > vol_avg:
+        st.markdown("### 💎 SINERGIA PRO: Confirmada Multitemporal + Volumen")
+        reproducir_alerta('alerta_especial.mp3.mp3')
+    elif status_bos != "NEUTRAL":
+        reproducir_alerta('campana.mp3.mp3')
+
+    # --- Telegram ---
+    current_status = f"{status_bos}_{status_ema}_{trend_5m}"
+    if not os.path.exists(STATUS_FILE) or open(STATUS_FILE).read() != current_status:
+        requests.get(f"https://api.telegram.org/bot{TOKEN}/sendMessage?chat_id={CHAT_ID}&text=Omega Pro Update: {current_status}")
+        with open(STATUS_FILE, "w") as f: f.write(current_status)
+
+    st.write(f"Precio: {last_close:.2f} | Volumen: {last_vol:.0f} (Promedio: {vol_avg:.0f})")
+else:
+    st.warning("Esperando datos del mercado...")
