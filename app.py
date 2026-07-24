@@ -12,7 +12,7 @@ STATUS_FILE = "status.txt"
 HISTORY_FILE = "history.csv"
 LOG_FILE = "log_sinergias.csv"
 
-# --- Función de Alertas ---
+# --- Funciones de Alerta ---
 def reproducir_alerta(nombre_archivo):
     if os.path.exists(nombre_archivo):
         with open(nombre_archivo, "rb") as f:
@@ -91,22 +91,27 @@ st.markdown('<meta http-equiv="refresh" content="30">', unsafe_allow_html=True)
 df = get_market_data()
 trend_5m = get_trend_5m()
 
-if df is not None and len(df) > 20:
+if df is not None and not df.empty:
     last_close = df['Close'].iloc[-1]
     ema200 = df['Close'].ewm(span=200, adjust=False).mean().iloc[-1]
-    high_prev = df['High'].iloc[-26:-1].max()
-    low_prev = df['Low'].iloc[-26:-1].min()
-    vol_avg = df['Volume'].rolling(window=20).mean().iloc[-1]
+    
+    if len(df) >= 26:
+        high_prev = df['High'].iloc[-26:-1].max()
+        low_prev = df['Low'].iloc[-26:-1].min()
+    else:
+        high_prev = df['High'].max()
+        low_prev = df['Low'].min()
+
+    vol_avg = df['Volume'].rolling(window=20).mean().iloc[-1] if len(df) >= 20 else df['Volume'].mean()
     last_vol = df['Volume'].iloc[-1]
     
-    # Cálculo del ATR dinámico
-    atr_val = calcular_atr(df)
-    atr_medio = df['Close'].iloc[-1] * 0.0005 
+    atr_val = calcular_atr(df, period=min(14, len(df))) if len(df) > 1 else 0.0
+    atr_medio = last_close * 0.0005 
 
     status_ema = "ALCISTA" if last_close > (ema200 * 1.001) else "BAJISTA" if last_close < (ema200 * 0.999) else "ESPERA"
     status_bos = "COMPRA" if last_close > high_prev else "VENTA" if last_close < low_prev else "NEUTRAL"
 
-    # --- Visualización con Colores ---
+    # --- Visualización con Colores en los 3 paneles independientes ---
     col1, col2, col3 = st.columns(3)
     if status_bos == "COMPRA": col1.success(f"Motor BOS: {status_bos}")
     elif status_bos == "VENTA": col1.error(f"Motor BOS: {status_bos}")
@@ -123,11 +128,10 @@ if df is not None and len(df) > 20:
     historial = update_history(status_bos, status_ema)
     st.table(historial)
 
-    # --- Notificación y Sinergia (Conservando TODAS las alertas y funciones) ---
+    # --- Notificación y Sinergia (Con contenedor púrpura, bitácora, ATR y alertas intactas) ---
     es_sinergia = (status_bos == "COMPRA" and status_ema == "ALCISTA" and trend_5m == "ALCISTA") or \
                   (status_bos == "VENTA" and status_ema == "BAJISTA" and trend_5m == "BAJISTA")
     
-    # 1. Si se cumple la Sinergia Pro completa con Volumen y ATR: Alerta Especial + Púrpura + Registro
     if es_sinergia and last_vol > vol_avg and atr_val > atr_medio:
         st.markdown(
             """
@@ -139,12 +143,10 @@ if df is not None and len(df) > 20:
         )
         registrar_sinergia(last_close, trend_5m, last_vol, vol_avg, atr_val)
         reproducir_alerta('alerta_especial.mp3.mp3')
-    
-    # 2. Si hay un movimiento BOS activo pero no es Sinergia Pro perfecta: Alerta de campana estándar
     elif status_bos != "NEUTRAL":
         reproducir_alerta('campana.mp3.mp3')
 
-    # --- Telegram (Con control de estado intacto) ---
+    # --- Telegram ---
     current_status = f"{status_bos}_{status_ema}_{trend_5m}"
     if not os.path.exists(STATUS_FILE) or open(STATUS_FILE).read() != current_status:
         requests.get(f"https://api.telegram.org/bot{TOKEN}/sendMessage?chat_id={CHAT_ID}&text=Omega Pro Update: {current_status}")
@@ -152,4 +154,4 @@ if df is not None and len(df) > 20:
 
     st.write(f"Precio: {last_close:.2f} | EMA 200: {ema200:.2f} | Volumen: {last_vol:.0f} (Promedio: {vol_avg:.0f}) | ATR: {atr_val:.2f}")
 else:
-    st.warning("Esperando suficientes datos del mercado...")
+    st.warning("Esperando datos del mercado...")
