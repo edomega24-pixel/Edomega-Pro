@@ -12,7 +12,7 @@ STATUS_FILE = "status.txt"
 HISTORY_FILE = "history.csv"
 LOG_FILE = "log_sinergias.csv"
 
-# --- Funciones de Alerta ---
+# --- Función de Alerta Sonora ---
 def reproducir_alerta(nombre_archivo):
     if os.path.exists(nombre_archivo):
         with open(nombre_archivo, "rb") as f:
@@ -21,7 +21,8 @@ def reproducir_alerta(nombre_archivo):
             audio_html = f'''<audio autoplay="true"><source src="data:audio/mp3;base64,{b64}" type="audio/mp3"></audio>'''
             st.markdown(audio_html, unsafe_allow_html=True)
 
-# --- Funciones de Datos (Optimizadas contra bloqueo) ---
+# --- Funciones de Datos Multitemporal y Mercado ---
+@st.cache_data(ttl=60)
 def get_trend_5m():
     try:
         df = yf.Ticker("BTC-USD").history(period="1d", interval="5m")
@@ -33,7 +34,6 @@ def get_trend_5m():
 
 def get_market_data():
     try:
-        # Descarga sin caché estricta para forzar datos en tiempo real y evitar congelamiento
         ticker = yf.Ticker("BTC-USD")
         df = ticker.history(period="1d", interval="1m")
         if df.empty: return None
@@ -79,13 +79,14 @@ def update_history(bos, ema):
     history.to_csv(HISTORY_FILE, index=False)
     return history
 
-# --- Interfaz ---
+# --- Configuración de Interfaz ---
 st.set_page_config(page_title="OMEGA PRO", layout="wide")
 st.title("🚀 OMEGA PRO: Panel Maestro Multitemporal + ATR")
 
-# --- Auto-Refresh ---
+# --- Auto-Refresh (Cada 30 segundos) ---
 st.markdown('<meta http-equiv="refresh" content="30">', unsafe_allow_html=True)
 
+# --- Descarga de Datos en Vivo ---
 df = get_market_data()
 trend_5m = get_trend_5m()
 
@@ -109,6 +110,16 @@ if df is not None and not df.empty:
     status_ema = "ALCISTA" if last_close > (ema200 * 1.001) else "BAJISTA" if last_close < (ema200 * 0.999) else "ESPERA"
     status_bos = "COMPRA" if last_close > high_prev else "VENTA" if last_close < low_prev else "NEUTRAL"
 
+    # --- Cabecera Superior con Precio en Vivo ---
+    st.markdown(
+        f"""
+        <div style="background-color: #1e1e1e; padding: 12px; border-radius: 8px; border: 1px solid #333; text-align: center; margin-bottom: 20px;">
+            <h3 style="color: #00ffcc; margin: 0;">💵 PRECIO ACTUAL BTC/USD: ${last_close:,.2f}</h3>
+        </div>
+        """, 
+        unsafe_allow_html=True
+    )
+
     # --- Visualización con Colores en los 3 paneles independientes ---
     col1, col2, col3 = st.columns(3)
     if status_bos == "COMPRA": col1.success(f"Motor BOS: {status_bos}")
@@ -121,15 +132,16 @@ if df is not None and not df.empty:
     
     col3.info(f"Tendencia 5m: {trend_5m}")
 
-    # --- Historial ---
+    # --- Historial de Movimientos ---
     st.subheader("📜 Historial de Movimientos")
     historial = update_history(status_bos, status_ema)
     st.table(historial)
 
-    # --- Notificación y Sinergia ---
+    # --- Lógica de Sinergia, Alertas Visuales y Sonoras ---
     es_sinergia = (status_bos == "COMPRA" and status_ema == "ALCISTA" and trend_5m == "ALCISTA") or \
                   (status_bos == "VENTA" and status_ema == "BAJISTA" and trend_5m == "BAJISTA")
     
+    # 1. Sinergia Pro Completa (Contenedor Púrpura + Alerta Especial + Registro en Bitácora)
     if es_sinergia and last_vol > vol_avg and atr_val > atr_medio:
         st.markdown(
             """
@@ -141,15 +153,18 @@ if df is not None and not df.empty:
         )
         registrar_sinergia(last_close, trend_5m, last_vol, vol_avg, atr_val)
         reproducir_alerta('alerta_especial.mp3.mp3')
+    
+    # 2. Movimiento BOS Activo Estándar (Alerta de Campana)
     elif status_bos != "NEUTRAL":
         reproducir_alerta('campana.mp3.mp3')
 
-    # --- Telegram ---
+    # --- Notificaciones de Telegram con Control Anti-Spam ---
     current_status = f"{status_bos}_{status_ema}_{trend_5m}"
     if not os.path.exists(STATUS_FILE) or open(STATUS_FILE).read() != current_status:
         requests.get(f"https://api.telegram.org/bot{TOKEN}/sendMessage?chat_id={CHAT_ID}&text=Omega Pro Update: {current_status}")
         with open(STATUS_FILE, "w") as f: f.write(current_status)
 
-    st.write(f"Precio en vivo: {last_close:.2f} | EMA 200: {ema200:.2f} | Volumen: {last_vol:.0f} (Promedio: {vol_avg:.0f}) | ATR: {atr_val:.2f}")
+    # --- Pie de Página con Métricas Técnicas ---
+    st.write(f"EMA 200: {ema200:.2f} | Volumen: {last_vol:.0f} (Promedio: {vol_avg:.0f}) | ATR: {atr_val:.2f}")
 else:
     st.error("⚠️ Conexión con Yahoo Finance pausada temporalmente. Reintentando reconexión en el próximo ciclo...")
