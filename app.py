@@ -20,25 +20,28 @@ def reproducir_alerta(nombre_archivo):
             audio_html = f'''<audio autoplay="true"><source src="data:audio/mp3;base64,{b64}" type="audio/mp3"></audio>'''
             st.markdown(audio_html, unsafe_allow_html=True)
 
-# --- Funciones de Datos con Binance (En tiempo real y sin desfases) ---
+# --- Funciones de Datos con Binance Blindada ---
 def get_market_data_binance(interval="1m", limit=100):
-    try:
-        url = f"https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval={interval}&limit={limit}"
-        response = requests.get(url, timeout=5)
-        if response.status_code == 200:
-            data = response.json()
-            df = pd.DataFrame(data, columns=[
-                'Open_time', 'Open', 'High', 'Low', 'Close', 'Volume',
-                'Close_time', 'Quote_asset_volume', 'Number_of_trades',
-                'Taker_buy_base_asset_volume', 'Taker_buy_quote_asset_volume', 'Ignore'
-            ])
-            # Convertir columnas a tipos numéricos
-            for col in ['Open', 'High', 'Low', 'Close', 'Volume']:
-                df[col] = pd.to_numeric(df[col])
-            return df
-        return None
-    except Exception as e:
-        return None
+    url = f"https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval={interval}&limit={limit}"
+    headers = {'User-Agent': 'Mozilla/5.0'}
+    
+    # Intentamos hasta 3 veces si Binance rechaza la conexión por alta demanda
+    for intento in range(3):
+        try:
+            response = requests.get(url, headers=headers, timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                df = pd.DataFrame(data, columns=[
+                    'Open_time', 'Open', 'High', 'Low', 'Close', 'Volume',
+                    'Close_time', 'Quote_asset_volume', 'Number_of_trades',
+                    'Taker_buy_base_asset_volume', 'Taker_buy_quote_asset_volume', 'Ignore'
+                ])
+                for col in ['Open', 'High', 'Low', 'Close', 'Volume']:
+                    df[col] = pd.to_numeric(df[col])
+                return df
+        except Exception as e:
+            pass
+    return None
 
 def get_trend_5m():
     try:
@@ -149,7 +152,6 @@ if df is not None and not df.empty:
     es_sinergia = (status_bos == "COMPRA" and status_ema == "ALCISTA" and trend_5m == "ALCISTA") or \
                   (status_bos == "VENTA" and status_ema == "BAJISTA" and trend_5m == "BAJISTA")
     
-    # 1. Sinergia Pro Completa (Contenedor Púrpura + Alerta Especial + Registro en Bitácora)
     if es_sinergia and last_vol > vol_avg and atr_val > atr_medio:
         st.markdown(
             """
@@ -161,8 +163,6 @@ if df is not None and not df.empty:
         )
         registrar_sinergia(last_close, trend_5m, last_vol, vol_avg, atr_val)
         reproducir_alerta('alerta_especial.mp3.mp3')
-    
-    # 2. Movimiento BOS Activo Estándar (Alerta de Campana)
     elif status_bos != "NEUTRAL":
         reproducir_alerta('campana.mp3.mp3')
 
