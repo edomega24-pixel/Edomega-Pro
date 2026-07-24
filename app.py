@@ -1,5 +1,4 @@
 import streamlit as st
-import yfinance as yf
 import requests
 import os
 import pandas as pd
@@ -21,25 +20,34 @@ def reproducir_alerta(nombre_archivo):
             audio_html = f'''<audio autoplay="true"><source src="data:audio/mp3;base64,{b64}" type="audio/mp3"></audio>'''
             st.markdown(audio_html, unsafe_allow_html=True)
 
-# --- Funciones de Datos Multitemporal y Mercado ---
-@st.cache_data(ttl=60)
+# --- Funciones de Datos con Binance (En tiempo real y sin desfases) ---
+def get_market_data_binance(interval="1m", limit=100):
+    try:
+        url = f"https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval={interval}&limit={limit}"
+        response = requests.get(url, timeout=5)
+        if response.status_code == 200:
+            data = response.json()
+            df = pd.DataFrame(data, columns=[
+                'Open_time', 'Open', 'High', 'Low', 'Close', 'Volume',
+                'Close_time', 'Quote_asset_volume', 'Number_of_trades',
+                'Taker_buy_base_asset_volume', 'Taker_buy_quote_asset_volume', 'Ignore'
+            ])
+            # Convertir columnas a tipos numéricos
+            for col in ['Open', 'High', 'Low', 'Close', 'Volume']:
+                df[col] = pd.to_numeric(df[col])
+            return df
+        return None
+    except Exception as e:
+        return None
+
 def get_trend_5m():
     try:
-        df = yf.Ticker("BTC-USD").history(period="1d", interval="5m")
-        if df.empty: return "NEUTRAL"
+        df = get_market_data_binance(interval="5m", limit=200)
+        if df is None or df.empty: return "NEUTRAL"
         ema200_5m = df['Close'].ewm(span=200, adjust=False).mean().iloc[-1]
         last_close_5m = df['Close'].iloc[-1]
         return "ALCISTA" if last_close_5m > ema200_5m else "BAJISTA"
     except: return "NEUTRAL"
-
-def get_market_data():
-    try:
-        ticker = yf.Ticker("BTC-USD")
-        df = ticker.history(period="1d", interval="1m")
-        if df.empty: return None
-        return df
-    except Exception as e:
-        return None
 
 def calcular_atr(df, period=14):
     high = df['High']
@@ -81,13 +89,13 @@ def update_history(bos, ema):
 
 # --- Configuración de Interfaz ---
 st.set_page_config(page_title="OMEGA PRO", layout="wide")
-st.title("🚀 OMEGA PRO: Panel Maestro Multitemporal + ATR")
+st.title("🚀 OMEGA PRO: Panel Maestro Binance + ATR")
 
 # --- Auto-Refresh (Cada 30 segundos) ---
 st.markdown('<meta http-equiv="refresh" content="30">', unsafe_allow_html=True)
 
-# --- Descarga de Datos en Vivo ---
-df = get_market_data()
+# --- Descarga de Datos Directo de Binance ---
+df = get_market_data_binance(interval="1m", limit=100)
 trend_5m = get_trend_5m()
 
 if df is not None and not df.empty:
@@ -110,11 +118,11 @@ if df is not None and not df.empty:
     status_ema = "ALCISTA" if last_close > (ema200 * 1.001) else "BAJISTA" if last_close < (ema200 * 0.999) else "ESPERA"
     status_bos = "COMPRA" if last_close > high_prev else "VENTA" if last_close < low_prev else "NEUTRAL"
 
-    # --- Cabecera Superior con Precio en Vivo ---
+    # --- Cabecera Superior con Precio en Vivo Exacto (Binance) ---
     st.markdown(
         f"""
         <div style="background-color: #1e1e1e; padding: 12px; border-radius: 8px; border: 1px solid #333; text-align: center; margin-bottom: 20px;">
-            <h3 style="color: #00ffcc; margin: 0;">💵 PRECIO ACTUAL BTC/USD: ${last_close:,.2f}</h3>
+            <h3 style="color: #00ffcc; margin: 0;">💵 PRECIO ACTUAL BTC/USDT (BINANCE): ${last_close:,.2f}</h3>
         </div>
         """, 
         unsafe_allow_html=True
@@ -161,10 +169,10 @@ if df is not None and not df.empty:
     # --- Notificaciones de Telegram con Control Anti-Spam ---
     current_status = f"{status_bos}_{status_ema}_{trend_5m}"
     if not os.path.exists(STATUS_FILE) or open(STATUS_FILE).read() != current_status:
-        requests.get(f"https://api.telegram.org/bot{TOKEN}/sendMessage?chat_id={CHAT_ID}&text=Omega Pro Update: {current_status}")
+        requests.get(f"https://api.telegram.org/bot{TOKEN}/sendMessage?chat_id={CHAT_ID}&text=Omega Pro Update (Binance): {current_status}")
         with open(STATUS_FILE, "w") as f: f.write(current_status)
 
     # --- Pie de Página con Métricas Técnicas ---
     st.write(f"EMA 200: {ema200:.2f} | Volumen: {last_vol:.0f} (Promedio: {vol_avg:.0f}) | ATR: {atr_val:.2f}")
 else:
-    st.error("⚠️ Conexión con Yahoo Finance pausada temporalmente. Reintentando reconexión en el próximo ciclo...")
+    st.error("⚠️ Conexión con la API de Binance pausada temporalmente. Reintentando reconexión en el próximo ciclo...")
