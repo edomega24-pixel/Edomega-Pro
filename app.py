@@ -21,8 +21,7 @@ def reproducir_alerta(nombre_archivo):
             audio_html = f'''<audio autoplay="true"><source src="data:audio/mp3;base64,{b64}" type="audio/mp3"></audio>'''
             st.markdown(audio_html, unsafe_allow_html=True)
 
-# --- Funciones de Datos ---
-@st.cache_data(ttl=60)
+# --- Funciones de Datos (Optimizadas contra bloqueo) ---
 def get_trend_5m():
     try:
         df = yf.Ticker("BTC-USD").history(period="1d", interval="5m")
@@ -32,15 +31,14 @@ def get_trend_5m():
         return "ALCISTA" if last_close_5m > ema200_5m else "BAJISTA"
     except: return "NEUTRAL"
 
-@st.cache_data(ttl=20)
 def get_market_data():
     try:
+        # Descarga sin caché estricta para forzar datos en tiempo real y evitar congelamiento
         ticker = yf.Ticker("BTC-USD")
         df = ticker.history(period="1d", interval="1m")
         if df.empty: return None
         return df
     except Exception as e:
-        st.error("Error conectando con el mercado.")
         return None
 
 def calcular_atr(df, period=14):
@@ -128,7 +126,7 @@ if df is not None and not df.empty:
     historial = update_history(status_bos, status_ema)
     st.table(historial)
 
-    # --- Notificación y Sinergia (Con contenedor púrpura, bitácora, ATR y alertas intactas) ---
+    # --- Notificación y Sinergia ---
     es_sinergia = (status_bos == "COMPRA" and status_ema == "ALCISTA" and trend_5m == "ALCISTA") or \
                   (status_bos == "VENTA" and status_ema == "BAJISTA" and trend_5m == "BAJISTA")
     
@@ -152,6 +150,6 @@ if df is not None and not df.empty:
         requests.get(f"https://api.telegram.org/bot{TOKEN}/sendMessage?chat_id={CHAT_ID}&text=Omega Pro Update: {current_status}")
         with open(STATUS_FILE, "w") as f: f.write(current_status)
 
-    st.write(f"Precio: {last_close:.2f} | EMA 200: {ema200:.2f} | Volumen: {last_vol:.0f} (Promedio: {vol_avg:.0f}) | ATR: {atr_val:.2f}")
+    st.write(f"Precio en vivo: {last_close:.2f} | EMA 200: {ema200:.2f} | Volumen: {last_vol:.0f} (Promedio: {vol_avg:.0f}) | ATR: {atr_val:.2f}")
 else:
-    st.warning("Esperando datos del mercado...")
+    st.error("⚠️ Conexión con Yahoo Finance pausada temporalmente. Reintentando reconexión en el próximo ciclo...")
